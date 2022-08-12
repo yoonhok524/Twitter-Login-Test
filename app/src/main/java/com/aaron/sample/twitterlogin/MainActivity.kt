@@ -4,11 +4,11 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.gms.tasks.OnFailureListener
-import com.google.android.gms.tasks.OnSuccessListener
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.OAuthProvider
+import com.google.firebase.auth.TwitterAuthProvider
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import com.twitter.sdk.android.core.Callback
@@ -32,14 +32,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
 
         Twitter.initialize(
             TwitterConfig.Builder(this)
-            .twitterAuthConfig(TwitterAuthConfig("h72oh63PDBk1IBBcT2El73gTQ", "3xp42Su157XKROwkF7rhyu8vPEhPRkZsiP97ZPq3tAj5yqDVeE"))
-            .debug(true)
-            .build()
+                .twitterAuthConfig(TwitterAuthConfig("h72oh63PDBk1IBBcT2El73gTQ", "3xp42Su157XKROwkF7rhyu8vPEhPRkZsiP97ZPq3tAj5yqDVeE"))
+                .debug(true)
+                .build()
         )
+
+        setContentView(R.layout.activity_main)
 
         val btnLogin = findViewById<Button>(R.id.btn_login)
         btnLogin.setOnClickListener {
@@ -57,27 +58,22 @@ class MainActivity : AppCompatActivity() {
         firebaseAuth
             .startActivityForSignInWithProvider(this, provider)
             .addOnSuccessListener { authResult ->
-                // User is signed in.
-                // IdP data available in
-                // authResult.getAdditionalUserInfo().getProfile().
-                // The OAuth access token can also be retrieved:
-                // authResult.getCredential().getAccessToken().
-                // The OAuth secret can be retrieved by calling:
-                // authResult.getCredential().getSecret().
-
                 Log.d(TAG, "[test] success - ${authResult.credential?.provider}")
                 Log.d(TAG, "[test] success - ${authResult.credential?.signInMethod}")
+                toast("startActivityForSignInWithProvider - Success")
             }
             .addOnFailureListener { t ->
-                Log.e(TAG, "[test] failed - ${t.message}", t)
+                Log.e(TAG, "[test] failed - ${t.message}", )
+                firebaseAuth.signOut()
+                toast("startActivityForSignInWithProvider - Failed")
             }
     }
 
     private fun authTwitter() {
         twitterAuthClient.authorize(this, object : Callback<TwitterSession>() {
             override fun success(result: Result<TwitterSession?>) {
+                Log.d(TAG, "[test] authorize - success")
                 val twitterSession = result.data
-                Log.d(TAG, "[test] authorize - authToken: ${twitterSession?.authToken}")
                 Log.d(TAG, "[test] authorize - token: ${twitterSession?.authToken?.token}")
                 Log.d(TAG, "[test] authorize - secret: ${twitterSession?.authToken?.secret}")
 
@@ -88,14 +84,8 @@ class MainActivity : AppCompatActivity() {
                     .enqueue(object : Callback<User>() {
                         override fun success(result: Result<User?>) {
                             Log.d(TAG, "[test] verifyCredentials - success")
-                            Log.d(
-                                TAG,
-                                "[test] verifyCredentials - ${twitterSession?.authToken?.token}"
-                            )
-                            Log.d(
-                                TAG,
-                                "[test] verifyCredentials - ${twitterSession?.authToken?.secret}"
-                            )
+                            Log.d(TAG, "[test] verifyCredentials - ${twitterSession?.authToken?.token}")
+                            Log.d(TAG, "[test] verifyCredentials - ${twitterSession?.authToken?.secret}")
                             Log.d(TAG, "[test] verifyCredentials - ${twitterSession?.userId}")
                             Log.d(TAG, "[test] verifyCredentials - ${result.data?.email}")
                         }
@@ -104,10 +94,28 @@ class MainActivity : AppCompatActivity() {
                             Log.e(TAG, "[test] verifyCredentials - failed: ${e.message}", e)
                         }
                     })
+
+//                twitterSession?.authToken?.let { authToken ->
+//                    val credential = TwitterAuthProvider.getCredential(authToken.token, authToken.secret)
+//                    firebaseAuth.signInWithCredential(credential)
+//                        .addOnSuccessListener {
+//                            Log.d(TAG, "[test] signInWithCredential - success")
+//                            Log.d(TAG, "[test] signInWithCredential - credential: ${it.credential}")
+//                            Log.d(TAG, "[test] signInWithCredential - user: ${it.user}")
+//                            toast("signInWithCredential - Success")
+//                        }
+//                        .addOnFailureListener { t ->
+//                            Log.e(TAG, "[test] signInWithCredential - failed: ${t.message}", )
+//                            toast("signInWithCredential - Failed")
+//                        }
+//                }
+
             }
 
             override fun failure(e: TwitterException) {
-                Log.e(TAG, "[test] authorize - failed: ${e.message}", e)
+                Log.e(TAG, "[test] authorize - failed: ${e.message}", )
+                twitterAuthClient.cancelAuthorize()
+                toast("authorize - Failed")
             }
         })
     }
@@ -116,6 +124,10 @@ class MainActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         Log.d(TAG, "[test] onActivityResult - $requestCode, $resultCode, ${data?.extras}")
         twitterAuthClient.onActivityResult(requestCode, resultCode, data)
+    }
+
+    private fun toast(msg: String) {
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
     }
 
     companion object {
